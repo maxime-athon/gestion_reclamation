@@ -11,18 +11,16 @@ from .serializers import (
     TicketSerializer, TicketListSerializer,
     CommentaireSerializer
 )
-from .permissions import IsAuteurOrReadOnly, IsTechnicienOrAdmin
+from .permissions import IsAuteurOrReadOnly, IsTechnicienOrAdmin, IsAdminRole
 
 
 class TicketViewSet(viewsets.ModelViewSet):
     """
-    ViewSet complet pour la gestion des tickets.
-    Endpoints REST disponibles :
-    - list      : GET /api/tickets/
-    - create    : POST /api/tickets/
-    - retrieve  : GET /api/tickets/{id}/
-    - update    : PUT/PATCH /api/tickets/{id}/
-    - destroy   : DELETE /api/tickets/{id}/
+    API Endpoints pour les tickets de réclamation.
+    
+    Permet le CRUD complet avec un filtrage basé sur le rôle utilisateur.
+    Inclut des actions personnalisées pour le cycle de vie (statut, assignation, archivage).
+    Filtre par défaut les tickets archivés pour les utilisateurs non-admins.
     """
 
     queryset = Ticket.objects.select_related(
@@ -31,7 +29,6 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsAuthenticated]
 
-    # Ajout de filtres, recherche et tri
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -57,12 +54,17 @@ class TicketViewSet(viewsets.ModelViewSet):
         - Citoyen : uniquement ses propres tickets.
         - Technicien : tickets qui lui sont assignés + tickets ouverts.
         - Admin : tous les tickets.
+        
+        Note: Les tickets avec 'est_archive=True' sont exclus de la vue 
+        opérationnelle pour ne pas encombrer l'interface.
         """
         user = self.request.user
+        base_queryset = Ticket.objects.filter(est_archive=False)
+
         if user.role == 'CITOYEN':
-            return Ticket.objects.filter(auteur=user)
+            return base_queryset.filter(auteur=user)
         if user.role == 'TECHNICIEN':
-            return Ticket.objects.filter(
+            return base_queryset.filter(
                 models.Q(assigne_a=user) | models.Q(statut='OUVERT')
             )
         return Ticket.objects.all()
@@ -118,11 +120,11 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['patch'], permission_classes=[IsTechnicienOrAdmin])
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdminRole])
     def assigner(self, request, pk=None):
         """
         PATCH /api/tickets/{id}/assigner/
-        Permet à un technicien ou admin d’assigner un ticket à un technicien.
+        Permet à l'administrateur d’assigner un ticket à un technicien.
         """
         ticket = self.get_object()
         technicien_id = request.data.get('technicien_id')
@@ -143,3 +145,33 @@ class TicketViewSet(viewsets.ModelViewSet):
                 {'erreur': 'Technicien introuvable.'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAdminRole])
+    def statistiques(self, request):
+        """
+        GET /api/tickets/statistiques/
+        Retourne des indicateurs clés sur les tickets.
+        """
+        total = Ticket.objects.count()
+        stats_statut = Ticket.objects.values('statut').annotate(total=models.Count('id'))
+        stats_priorite = Ticket.objects.values('priorite').annotate(total=models.Count('id'))
+
+        return Response({
+            'total_tickets': total,
+            'par_statut': stats_statut,
+            'par_priorite': stats_priorite,
+        })
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminRole])
+    def archiver(self, request, pk=None):
+        """
+        POST /api/tickets/{id}/archiver/
+        Archive un ticket clos ou résolu.
+        """
+        ticket = self.get_object()
+        if ticket.statut not in [Ticket.Statut.RESOLU, Ticket.Statut.CLOS]:
+            return Response({'erreur': 'Seuls les tickets résolus ou clos peuvent être archivés.'}, status=400)
+        
+        ticket.est_archive = True
+        ticket.save()
+        return Response({'message': 'Ticket archivé avec succès.'})

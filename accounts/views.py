@@ -1,8 +1,9 @@
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from accounts.models import CustomUser
 from accounts.serializers import RegisterSerializer, UserSerializer
+from tickets.permissions import IsAdminRole
 
 
 class RegisterView(generics.CreateAPIView):
@@ -28,3 +29,12 @@ class ProfileView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet pour la gestion des utilisateurs par l'administrateur.
+    """
+    queryset = CustomUser.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]

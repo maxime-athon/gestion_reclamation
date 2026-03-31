@@ -68,7 +68,7 @@ class TicketSerializer(serializers.ModelSerializer):
             'statut', 'priorite', 'auteur', 'assigne_a',
             'assigne_a_id', 'date_creation',
             'date_modification', 'date_resolution',
-            'commentaires', 'historique',
+            'commentaires', 'historique', 'est_archive',
         ]
         read_only_fields = ['auteur', 'date_creation', 'date_modification']
 
@@ -93,5 +93,5 @@ class TicketListSerializer(serializers.ModelSerializer):
         model = Ticket
         fields = [
             'id', 'titre', 'type_ticket', 'statut',
-            'priorite', 'auteur', 'assigne_a', 'date_creation'
+            'priorite', 'auteur', 'assigne_a', 'date_creation', 'est_archive'
         ]

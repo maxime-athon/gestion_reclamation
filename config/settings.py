@@ -120,8 +120,18 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-#----CORS (pour Flutter)--
-CORS_ALLOW_ALL_ORIGINS = True  # à restreindre en production
+# ---- Configuration de Sécurité (CORS & SSL) ----
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8080",  # Simulateur Flutter
+    "https://votre-domaine-production.com",
+]
+
+# En production, activez ces paramètres (Nginx + Certbot)
+# SECURE_SSL_REDIRECT = True
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 

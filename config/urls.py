@@ -17,11 +17,12 @@ from rest_framework_simplejwt.views import (
 )
 
 from tickets.views import TicketViewSet
-from accounts.views import RegisterView, ProfileView
+from accounts.views import RegisterView, ProfileView, UserViewSet
 
 # Router DRF pour les ViewSets
 router = DefaultRouter()
 router.register(r'tickets', TicketViewSet, basename='ticket')
+router.register(r'users', UserViewSet, basename='user')
 
 urlpatterns = [
     # Interface d’administration Django

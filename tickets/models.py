@@ -2,6 +2,10 @@ from django.db import models
 from django.conf import settings
 
 class Ticket(models.Model):
+    """
+    Représente une réclamation ou une demande soumise par un utilisateur.
+    Gère le cycle de vie du ticket via les statuts et les assignations.
+    """
     class TypeTicket(models.TextChoices):
         INCIDENT = 'INCIDENT', 'Incident technique'
         RECLAMATION = 'RECLAMATION', 'Réclamation'
@@ -29,12 +33,15 @@ class Ticket(models.Model):
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
     date_resolution = models.DateTimeField(null=True, blank=True)
+    est_archive = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"[{self.statut}] {self.titre}"
+        return f"#{self.id} - [{self.statut}] {self.titre}"
 
 class Commentaire(models.Model):
-    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='commentaires')
+    """Commentaires postés par les citoyens ou techniciens sur un ticket spécifique."""
+    ticket = models.ForeignKey(
+        Ticket, on_delete=models.CASCADE, related_name='commentaires')
     auteur = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     contenu = models.TextField()
     date = models.DateTimeField(auto_now_add=True)
