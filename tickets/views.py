@@ -1,99 +1,93 @@
-from rest_framework import viewsets, status, filters
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
+﻿from django.db import models
 from django.utils import timezone
-from django.db import models
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-from .models import Ticket, Commentaire, HistoriqueStatut
+from accounts.models import CustomUser
+from .models import Commentaire, HistoriqueStatut, Notification, Ticket
+from .permissions import IsAdminRole, IsAuteurOrReadOnly, IsTechnicienOrAdmin
 from .serializers import (
-    TicketSerializer, TicketListSerializer,
-    CommentaireSerializer
+    CommentaireSerializer,
+    NotificationSerializer,
+    TicketListSerializer,
+    TicketSerializer,
 )
-from .permissions import IsAuteurOrReadOnly, IsTechnicienOrAdmin, IsAdminRole
 
+# Ce fichier définit les vues pour l'application "tickets".
+# Les vues sont basées sur des viewsets de Django REST Framework, qui fournissent des fonctionnalités CRUD pour les modèles Ticket et Notification. 
+# La classe TicketViewSet gère les opérations liées aux tickets, telles que la création, la modification, l'assignation, les commentaires et les statistiques, tandis que la classe NotificationViewSet gère les opérations liées aux notifications, telles que\ la récupération et la mise à jour de l'état de lecture des notifications.
+# Les vues utilisent des permissions personnalisées pour contrôler l'accès aux différentes actions en fonction du rôle de l'utilisateur (auteur, technicien, administrateur) et du type d'opération (lecture, écriture). 
+# Les vues utilisent également des serializers pour valider les données d'entrée et formater les données de sortie, et des filtres pour permettre la recherche, le tri et le filtrage des tickets et des notifications. 
 
-class TicketViewSet(viewsets.ModelViewSet):
-    """
-    API Endpoints pour les tickets de réclamation.
-    
-    Permet le CRUD complet avec un filtrage basé sur le rôle utilisateur.
-    Inclut des actions personnalisées pour le cycle de vie (statut, assignation, archivage).
-    Filtre par défaut les tickets archivés pour les utilisateurs non-admins.
-    """
-
-    queryset = Ticket.objects.select_related(
-        'auteur', 'assigne_a'
-    ).prefetch_related('commentaires', 'historique')
-
-    permission_classes = [IsAuthenticated]
-
-    filter_backends = [
-        DjangoFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
-    ]
-    filterset_fields = ['statut', 'priorite', 'type_ticket', 'assigne_a']
+class TicketViewSet(viewsets.ModelViewSet):#une vue pour gérer les tickets de réclamation, qui permet aux utilisateurs de créer, consulter, modifier et archiver des tickets, ainsi que d'ajouter des commentaires et de changer le statut des tickets.
+    permission_classes = [IsAuthenticated, IsAuteurOrReadOnly]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['statut', 'priorite', 'type_ticket', 'assigne_a', 'est_archive']
     search_fields = ['titre', 'description']
-    ordering_fields = ['date_creation', 'priorite', 'statut']
+    ordering_fields = ['date_creation', 'date_modification', 'date_resolution', 'priorite', 'statut']
     ordering = ['-date_creation']
 
+    def get_base_queryset(self):
+        return Ticket.objects.select_related('auteur', 'assigne_a').prefetch_related(
+            'historique__modifie_par',
+            'commentaires__auteur',
+        ).annotate(commentaires_count=models.Count('commentaires', distinct=True))
+
     def get_serializer_class(self):
-        """
-        Utilise un serializer allégé pour la liste,
-        sinon le serializer complet.
-        """
         if self.action == 'list':
             return TicketListSerializer
         return TicketSerializer
 
     def get_queryset(self):
-        """
-        Retourne les tickets visibles selon le rôle de l'utilisateur :
-        - Citoyen : uniquement ses propres tickets.
-        - Technicien : tickets qui lui sont assignés + tickets ouverts.
-        - Admin : tous les tickets.
-        
-        Note: Les tickets avec 'est_archive=True' sont exclus de la vue 
-        opérationnelle pour ne pas encombrer l'interface.
-        """
         user = self.request.user
-        base_queryset = Ticket.objects.filter(est_archive=False)
+        queryset = self.get_base_queryset()
 
-        if user.role == 'CITOYEN':
-            return base_queryset.filter(auteur=user)
-        if user.role == 'TECHNICIEN':
-            return base_queryset.filter(
-                models.Q(assigne_a=user) | models.Q(statut='OUVERT')
-            )
-        return Ticket.objects.all()
+        include_archived = self.request.query_params.get('include_archived') in {'1', 'true', 'True'}
+        assigned_only = self.request.query_params.get('assigned') in {'1', 'true', 'True'}
+
+        if user.role == CustomUser.Role.ADMIN:
+            if not include_archived:
+                queryset = queryset.filter(est_archive=False)
+            return queryset
+
+        queryset = queryset.filter(est_archive=False)
+
+        if user.role == CustomUser.Role.CITOYEN:
+            return queryset.filter(auteur=user)
+
+        if assigned_only:
+            return queryset.filter(assigne_a=user)
+
+        return queryset.filter(models.Q(assigne_a=user) | models.Q(statut=Ticket.Statut.OUVERT))
+
+    def perform_create(self, serializer):
+        serializer.save(auteur=self.request.user)
 
     @action(detail=True, methods=['patch'], permission_classes=[IsTechnicienOrAdmin])
     def changer_statut(self, request, pk=None):
-        """
-        PATCH /api/tickets/{id}/changer_statut/
-        Permet à un technicien ou admin de changer le statut d’un ticket.
-        Ajoute une entrée dans l’historique.
-        """
         ticket = self.get_object()
         nouveau_statut = request.data.get('statut')
 
-        if nouveau_statut not in dict(Ticket.Statut.choices):
+        if request.user.role == CustomUser.Role.TECHNICIEN and ticket.assigne_a_id != request.user.id:
             return Response(
-                {'erreur': 'Statut invalide.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'erreur': 'Ce ticket doit vous etre assigne avant changement de statut.'},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
+        if nouveau_statut not in dict(Ticket.Statut.choices):
+            return Response({'erreur': 'Statut invalide.'}, status=status.HTTP_400_BAD_REQUEST)
+
         ancien_statut = ticket.statut
+        if ancien_statut == nouveau_statut:
+            return Response(TicketSerializer(ticket, context={'request': request}).data)
+
         ticket.statut = nouveau_statut
+        ticket.date_resolution = timezone.now() if nouveau_statut == Ticket.Statut.RESOLU else None
+        ticket.save(update_fields=['statut', 'date_resolution', 'date_modification'])
 
-        if nouveau_statut == Ticket.Statut.RESOLU:
-            ticket.date_resolution = timezone.now()
-
-        ticket.save()
-
-        # Enregistrer l’historique
         HistoriqueStatut.objects.create(
             ticket=ticket,
             ancien_statut=ancien_statut,
@@ -101,77 +95,109 @@ class TicketViewSet(viewsets.ModelViewSet):
             modifie_par=request.user,
         )
 
-        return Response(
-            TicketSerializer(ticket, context={'request': request}).data
-        )
+        serializer = TicketSerializer(ticket, context={'request': request})
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def commenter(self, request, pk=None):
-        """
-        POST /api/tickets/{id}/commenter/
-        Permet à un utilisateur d’ajouter un commentaire sur un ticket.
-        """
         ticket = self.get_object()
         serializer = CommentaireSerializer(data=request.data)
-
-        if serializer.is_valid():
-            serializer.save(ticket=ticket, auteur=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        commentaire = serializer.save(ticket=ticket, auteur=request.user)
+        return Response(
+            CommentaireSerializer(commentaire, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=['patch'], permission_classes=[IsAdminRole])
     def assigner(self, request, pk=None):
-        """
-        PATCH /api/tickets/{id}/assigner/
-        Permet à l'administrateur d’assigner un ticket à un technicien.
-        """
         ticket = self.get_object()
         technicien_id = request.data.get('technicien_id')
 
-        try:
-            from accounts.models import CustomUser
-            tech = CustomUser.objects.get(id=technicien_id, role='TECHNICIEN')
-
-            ticket.assigne_a = tech
-            ticket.statut = Ticket.Statut.EN_COURS
-            ticket.save()
-
+        if technicien_id in (None, ''):
             return Response(
-                TicketSerializer(ticket, context={'request': request}).data
+                {'erreur': 'technicien_id est obligatoire.'},
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
+        try:
+            technicien = CustomUser.objects.get(id=technicien_id, role=CustomUser.Role.TECHNICIEN)
         except CustomUser.DoesNotExist:
             return Response(
                 {'erreur': 'Technicien introuvable.'},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
+
+        ticket.assigne_a = technicien
+        if ticket.statut == Ticket.Statut.OUVERT:
+            ticket.statut = Ticket.Statut.EN_COURS
+        ticket.save(update_fields=['assigne_a', 'statut', 'date_modification'])
+
+        serializer = TicketSerializer(ticket, context={'request': request})
+        return Response(serializer.data)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAdminRole])
     def statistiques(self, request):
-        """
-        GET /api/tickets/statistiques/
-        Retourne des indicateurs clés sur les tickets.
-        """
-        total = Ticket.objects.count()
-        stats_statut = Ticket.objects.values('statut').annotate(total=models.Count('id'))
-        stats_priorite = Ticket.objects.values('priorite').annotate(total=models.Count('id'))
+        tickets = Ticket.objects.all()
+        today = timezone.localdate()
 
-        return Response({
-            'total_tickets': total,
-            'par_statut': stats_statut,
-            'par_priorite': stats_priorite,
-        })
+        by_status = {item['statut']: item['total'] for item in tickets.values('statut').annotate(total=models.Count('id'))}
+        by_priority = {item['priorite']: item['total'] for item in tickets.values('priorite').annotate(total=models.Count('id'))}
+        by_type = {item['type_ticket']: item['total'] for item in tickets.values('type_ticket').annotate(total=models.Count('id'))}
+
+        payload = {
+            'total_tickets': tickets.count(),
+            'open_tickets': by_status.get(Ticket.Statut.OUVERT, 0),
+            'in_progress_tickets': by_status.get(Ticket.Statut.EN_COURS, 0),
+            'resolved_tickets': by_status.get(Ticket.Statut.RESOLU, 0),
+            'closed_tickets': by_status.get(Ticket.Statut.CLOS, 0),
+            'critical_tickets': by_priority.get(Ticket.Priorite.CRITIQUE, 0),
+            'resolved_today': tickets.filter(date_resolution__date=today).count(),
+            'par_statut': by_status,
+            'par_priorite': by_priority,
+            'par_type': by_type,
+        }
+        return Response(payload)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminRole])
     def archiver(self, request, pk=None):
-        """
-        POST /api/tickets/{id}/archiver/
-        Archive un ticket clos ou résolu.
-        """
         ticket = self.get_object()
         if ticket.statut not in [Ticket.Statut.RESOLU, Ticket.Statut.CLOS]:
-            return Response({'erreur': 'Seuls les tickets résolus ou clos peuvent être archivés.'}, status=400)
-        
+            return Response(
+                {'erreur': 'Seuls les tickets resolus ou clos peuvent etre archives.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if ticket.est_archive:
+            return Response({'message': 'Le ticket est deja archive.'})
+
         ticket.est_archive = True
-        ticket.save()
-        return Response({'message': 'Ticket archivé avec succès.'})
+        ticket.save(update_fields=['est_archive', 'date_modification'])
+        return Response({'message': 'Ticket archive avec succes.'})
+
+
+class NotificationViewSet(viewsets.ModelViewSet):#une vue pour gérer les notifications des utilisateurs, qui permet aux utilisateurs de voir leurs notifications, de marquer les notifications comme lues ou non lues, et de marquer toutes les notifications comme lues en une seule action.
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+    def get_queryset(self):
+        queryset = Notification.objects.filter(destinataire=self.request.user).select_related('ticket')
+        unread_only = self.request.query_params.get('unread') in {'1', 'true', 'True'}
+        if unread_only:
+            queryset = queryset.filter(est_lue=False)
+        return queryset
+
+    def partial_update(self, request, *args, **kwargs):
+        notification = self.get_object()
+        serializer = self.get_serializer(notification, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        if 'est_lue' in serializer.validated_data:
+            notification.est_lue = serializer.validated_data['est_lue']
+            notification.save(update_fields=['est_lue'])
+        return Response(self.get_serializer(notification).data)
+
+    @action(detail=False, methods=['post'])
+    def mark_all_read(self, request):
+        updated = self.get_queryset().filter(est_lue=False).update(est_lue=True)
+        return Response({'updated': updated})

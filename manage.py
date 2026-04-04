@@ -7,7 +7,9 @@ import sys
 def main():
     """Run administrative tasks."""
     # Force l'encodage UTF-8 pour éviter le crash sur les accents Windows
+    os.environ['PYTHONUTF8'] = '1'
     os.environ['PGCLIENTENCODING'] = 'UTF8'
+    os.environ['LC_ALL'] = 'C'  # Force les messages d'erreur en anglais
 
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
     try:

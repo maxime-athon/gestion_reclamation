@@ -1,6 +1,12 @@
 from django.db import models
 from django.conf import settings
 
+# Ce fichier définit les modèles de données pour l'application "tickets". 
+# Il contient les classes Ticket, Commentaire, HistoriqueStatut et Notification,
+# qui représentent respectivement les tickets de réclamation, les commentaires associés à ces tickets, 
+# l'historique des changements de statut des tickets et les notifications envoyées aux utilisateurs. 
+# Chaque classe utilise des champs appropriés pour stocker les informations nécessaires et des relations entre les modèles sont établies à l'aide de ForeignKey.
+
 class Ticket(models.Model):
     """
     Représente une réclamation ou une demande soumise par un utilisateur.
@@ -52,3 +58,15 @@ class HistoriqueStatut(models.Model):
     nouveau_statut = models.CharField(max_length=10)
     date_changement = models.DateTimeField(auto_now_add=True)
     modifie_par = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+
+class Notification(models.Model):
+    """Système de notifications pour alerter les utilisateurs des actions à entreprendre."""
+    destinataire = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
+    titre = models.CharField(max_length=100)
+    message = models.TextField()
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, null=True, blank=True)
+    est_lue = models.BooleanField(default=False)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date_creation']
