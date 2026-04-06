@@ -53,9 +53,10 @@ class TicketService {
   }
 
   /// Ajoute un commentaire à un ticket (POST /commenter/)
-  Future<void> commenterTicket(int id, String contenu) async {
-    await _api.post("tickets/$id/commenter/", {"contenu": contenu}, useToken: true);
-  }
+ Future<Map<String, dynamic>> commenterTicket(int id, String contenu) async {
+  return await _api.post("tickets/$id/commenter/", {"contenu": contenu}, useToken: true);
+}
+
 
   /// Assigne un ticket à un technicien (PATCH /assigner/)
   Future<Ticket> assignerTicket(int id, int technicienId) async {

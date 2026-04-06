@@ -5,7 +5,7 @@ import '../../constants/app_colors.dart';
 import '../../models/app_notification.dart';
 import '../../providers/ticket_provider.dart';
 import '../../widgets/feedback_banner.dart';
-import '../tickets/ticket_detail.dart';
+import '../tickets/ticket_detail_screen.dart';
 
 // écran de notifications qui affiche les alertes et mises à jour liées aux tickets de l'utilisateur, avec des options pour marquer les notifications comme lues et accéder rapidement au détail des tickets concernés
 class NotificationsScreen extends StatefulWidget {

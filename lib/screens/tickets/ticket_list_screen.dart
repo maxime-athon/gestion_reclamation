@@ -7,7 +7,7 @@ import '../../providers/ticket_provider.dart';
 import '../../widgets/feedback_banner.dart';
 import '../profile_screen.dart';
 import 'create_ticket_screen.dart';
-import 'ticket_detail.dart';
+import 'ticket_detail_screen.dart';
 
 // écran de liste des tickets qui affiche les tickets de l'utilisateur avec des options de filtrage par statut et par type, et un bouton pour créer un nouveau ticket
 //il affiche les tickets sous forme de cartes avec des informations clés (titre, numéro, date, statut, priorité, nombre de commentaires) et une couleur de bordure indiquant le type de ticket (incident, reclamation, demande)

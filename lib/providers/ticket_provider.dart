@@ -149,19 +149,25 @@ class TicketProvider extends ChangeNotifier {
     }
   }
 
-  /// Ajoute un commentaire à un ticket
+/// Ajoute un commentaire à un ticket
   Future<void> addComment(int id, String contenu) async {
-    try {
-      await _ticketService.commenterTicket(id, contenu);
-      await fetchTicketDetail(id); // recharge le ticket pour voir le commentaire
-    } on AppError catch (e) {
-      _error = e.message;
-      notifyListeners();
-    } catch (e) {
-      _error = 'Le commentaire n\'a pas pu être envoyé.';
-      notifyListeners();
-    }
+  try {
+    _error = null;
+    notifyListeners(); 
+
+    await _ticketService.commenterTicket(id, contenu);
+    await fetchTicketDetail(id); 
+
+  } on AppError catch (e) {
+    _error = e.message;
+    notifyListeners();
+    
+  } catch (e) {
+    _error = 'Le commentaire n\'a pas pu être envoyé.';
+    notifyListeners();
   }
+}
+
 
   /// Supprime un ticket
   Future<void> deleteTicket(int id) async {

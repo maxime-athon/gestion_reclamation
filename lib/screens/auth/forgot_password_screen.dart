@@ -1,3 +1,4 @@
+//cet fichier contient l'écran de mot de passe oublié qui permet à l'utilisateur de demander un lien de réinitialisation de mot de passe en entrant son adresse email. Il utilise le provider d'authentification pour envoyer la requête à l'API et affiche des messages de succès ou d'erreur en fonction de la réponse. Si la demande est réussie, il navigue vers un écran de confirmation pour informer l'utilisateur que le lien a été envoyé à son email.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

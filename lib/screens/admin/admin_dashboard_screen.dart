@@ -8,7 +8,7 @@ import '../../providers/ticket_provider.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/feedback_banner.dart';
 import '../auth/login_screen.dart';
-import '../tickets/ticket_detail.dart';
+import '../tickets/ticket_detail_screen.dart';
 import 'admin_overview_page.dart';
 import 'admin_statistics_page.dart';
 import 'admin_technician_management_page.dart';
@@ -39,6 +39,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _techEmailCtrl = TextEditingController();
   final _techPhoneCtrl = TextEditingController();
   final _techPasswordCtrl = TextEditingController();
+  bool _isTechPasswordVisible = false;
   static const _primaryColor = AppColors.primary;
   _AdminSection _section = _AdminSection.overview;
 
@@ -422,7 +423,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         const SizedBox(height: 16),
                         _modalLabel('Mot de passe (Optionnel)'),
                         const SizedBox(height: 6),
-                        TextField(controller: _techPasswordCtrl, obscureText: true, decoration: _modalInput('Mot de passe personnalisé')),
+                        TextField(
+                          controller: _techPasswordCtrl,
+                          obscureText: !_isTechPasswordVisible,
+                          decoration: _modalInput('Mot de passe personnalisé').copyWith(
+                            suffixIcon: IconButton(
+                              icon: Icon(_isTechPasswordVisible ? Icons.visibility : Icons.visibility_off, color: const Color(0xFF9CA3AF)),
+                              onPressed: () => setState(() => _isTechPasswordVisible = !_isTechPasswordVisible),
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 20),
                         Container(
                           padding: const EdgeInsets.all(16),

@@ -8,8 +8,6 @@ import '../../providers/ticket_provider.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/feedback_banner.dart';
 
-// écran de détail d'un ticket pour les techniciens, qui affiche les informations complètes du ticket, la conversation entre le technicien et le citoyen, et les actions possibles (changer le statut du ticket, répondre au citoyen)
-//il est structuré en plusieurs sections : un header avec le numéro et la priorité du ticket, une carte avec le nom du signalant et la description du problème, une section de messages qui affiche la conversation entre le technicien et le citoyen, et une section de composition pour permettre au technicien de répondre au citoyen ou d'ajouter des commentaires internes
 class TechnicianTicketDetailScreen extends StatefulWidget {
   final int ticketId;
 
@@ -20,8 +18,6 @@ class TechnicianTicketDetailScreen extends StatefulWidget {
 }
 
 class _TechnicianTicketDetailScreenState extends State<TechnicianTicketDetailScreen> {
-  // La variable _replyCtrl avait été supprimée par erreur
-  // et est nécessaire pour le champ de réponse.
   final _replyCtrl = TextEditingController();
 
   @override
@@ -46,6 +42,7 @@ class _TechnicianTicketDetailScreenState extends State<TechnicianTicketDetailScr
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         bottom: false,
         child: provider.loading
@@ -56,31 +53,38 @@ class _TechnicianTicketDetailScreenState extends State<TechnicianTicketDetailScr
                     children: [
                       _buildTopBar(ticket),
                       Expanded(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 760),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (provider.error != null) ...[
-                                    FeedbackBanner(message: provider.error!),
-                                    const SizedBox(height: 16),
-                                  ],
-                                  _buildReporterCard(ticket),
-                                  const SizedBox(height: 20),
-                                  ..._buildMessages(ticket, currentUserId),
-                                ],
+                        child: GestureDetector(
+                          onTap: () => FocusScope.of(context).unfocus(),
+                          child: ListView(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                            children: [
+                              Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 760),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (provider.error != null) ...[
+                                        FeedbackBanner(message: provider.error!),
+                                        const SizedBox(height: 16),
+                                      ],
+                                      _buildReporterCard(ticket),
+                                      const SizedBox(height: 20),
+                                      ..._buildMessages(ticket, currentUserId),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       ),
+                      // Compositeur placé ici pour éviter les erreurs de layout
+                      if (ticket.statut != 'RESOLU' && ticket.statut != 'CLOS')
+                        _buildComposer(ticket),
                     ],
                   ),
       ),
-      bottomNavigationBar: ticket == null ? null : _buildComposer(ticket),
     );
   }
 
@@ -166,7 +170,7 @@ class _TechnicianTicketDetailScreenState extends State<TechnicianTicketDetailScr
       decoration: BoxDecoration(
         color: const Color(0xFFEFF6FF),
         borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
-        border: const Border(left: BorderSide(color: Color(0xFF60A5FA), width: 4)),
+        border: const Border(left: BorderSide(color: Color(0xFF3B82F6), width: 4)),
         boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 8, offset: Offset(0, 2))],
       ),
       child: Column(
@@ -218,9 +222,9 @@ class _TechnicianTicketDetailScreenState extends State<TechnicianTicketDetailScr
         padding: const EdgeInsets.only(bottom: 16),
         child: _messageBubble(
           initials: _initials(authorName),
-          avatarColor: isCurrentUser ? AppColors.primaryDark : Colors.white, // Utilisation de AppColors.primaryDark
+          avatarColor: isCurrentUser ? AppColors.primaryDark : Colors.white,
           avatarTextColor: isCurrentUser ? Colors.white : const Color(0xFF6B7280),
-          bubbleColor: isCurrentUser ? AppColors.primaryDark : Colors.white, // Utilisation de AppColors.primaryDark
+          bubbleColor: isCurrentUser ? AppColors.primaryDark : Colors.white,
           textColor: isCurrentUser ? Colors.white : const Color(0xFF1F2937),
           timeColor: isCurrentUser ? const Color(0xFFA7F3D0) : const Color(0xFF9CA3AF),
           alignRight: isCurrentUser,
@@ -309,50 +313,47 @@ class _TechnicianTicketDetailScreenState extends State<TechnicianTicketDetailScr
   }
 
   Widget _buildComposer(Ticket ticket) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        color: Colors.white,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => AppSnackbar.show(context, message: 'Fonctionnalite media bientot disponible.', isError: false),
-                  icon: const Icon(Icons.image),
-                  color: const Color(0xFF9CA3AF),
-                ),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(18)),
-                    child: TextField(
-                      controller: _replyCtrl,
-                      decoration: const InputDecoration(hintText: 'Repondre au citoyen...', border: InputBorder.none),
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendReply(ticket),
-                    ),
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => AppSnackbar.show(context, message: 'Fonctionnalite media bientot disponible.', isError: false),
+                icon: const Icon(Icons.image),
+                color: const Color(0xFF9CA3AF),
+              ),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                  decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(18)),
+                  child: TextField(
+                    controller: _replyCtrl,
+                    decoration: const InputDecoration(hintText: 'Repondre au citoyen...', border: InputBorder.none),
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _sendReply(ticket),
                   ),
                 ),
-                const SizedBox(width: 12),
-                InkWell(
-                  onTap: () => _sendReply(ticket),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [BoxShadow(color: Color(0x22006743), blurRadius: 10, offset: Offset(0, 4))],
-                    ),
-                    child: const Icon(Icons.send, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              InkWell(
+                onTap: () => _sendReply(ticket),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [BoxShadow(color: Color(0x22006743), blurRadius: 10, offset: Offset(0, 4))],
                   ),
+                  child: const Icon(Icons.send, color: Colors.white),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -361,9 +362,7 @@ class _TechnicianTicketDetailScreenState extends State<TechnicianTicketDetailScr
 
   Future<void> _sendReply(Ticket ticket) async {
     final message = _replyCtrl.text.trim();
-    if (message.isEmpty) {
-      return;
-    }
+    if (message.isEmpty) return;
 
     final provider = context.read<TicketProvider>();
     await provider.addComment(ticket.id, message);
@@ -375,48 +374,33 @@ class _TechnicianTicketDetailScreenState extends State<TechnicianTicketDetailScr
   }
 
   String _priorityLabel(String priority) {
-    switch (priority) {
-      case 'CRITIQUE':
-        return 'Critique';
-      case 'HAUTE':
-        return 'Haute';
-      case 'NORMALE':
-        return 'Normale';
-      default:
-        return 'Basse';
+    switch (priority.toUpperCase()) {
+      case 'CRITIQUE': return 'Critique';
+      case 'HAUTE': return 'Haute';
+      case 'NORMALE': return 'Normale';
+      default: return 'Basse';
     }
   }
 
   Color _priorityAccent(String priority) {
-    switch (priority) {
+    switch (priority.toUpperCase()) {
       case 'CRITIQUE':
-      case 'HAUTE':
-        return const Color(0xFFFCA5A5);
-      case 'NORMALE':
-        return const Color(0xFFBFDBFE);
-      default:
-        return const Color(0xFFA7F3D0);
+      case 'HAUTE': return const Color(0xFFFCA5A5);
+      case 'NORMALE': return const Color(0xFFBFDBFE);
+      default: return const Color(0xFFA7F3D0);
     }
   }
 
   String _time(String raw) {
     final date = DateTime.tryParse(raw)?.toLocal();
-    if (date == null) {
-      return '--:--';
-    }
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+    if (date == null) return '--:--';
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
-    if (parts.isEmpty) {
-      return 'TK';
-    }
-    if (parts.length == 1) {
-      return parts.first.substring(0, parts.first.length >= 2 ? 2 : 1).toUpperCase();
-    }
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return 'TK';
+    if (parts.length == 1) return parts.first.substring(0, parts.first.length >= 2 ? 2 : 1).toUpperCase();
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 }

@@ -1,21 +1,6 @@
 ﻿// cet fichier contient le modele de ticket de l'application
 // il est utilisé pour stocker les informations des tickets récupérées depuis l'API et les
 // afficher dans les différentes sections de l'application (liste des tickets, détail du ticket, etc.)
-// le modèle de ticket contient les informations suivantes :
-// - id : l'identifiant unique du ticket
-// - numeroTicket : le numéro du ticket (ex: TK-1234)
-// - titre : le titre du ticket
-// - description : la description du problème signalé dans le ticket
-// - typeTicket : le type de ticket (ex: "Incident", "Demande",
-//   "Problème", etc.)
-// - statut : le statut actuel du ticket (ex: "Nouveau", "En cours", "Résolu", etc.)
-// - priorite : la priorité du ticket (ex: "Basse", "Moyenne", "Haute")
-// - auteurNom : le nom de l'auteur du ticket
-// - dateCreation : la date de création du ticket
-// - dateResolution : la date de résolution du ticket (si applicable)
-// - assigneA : le nom de la personne à qui le ticket est assigné (si applicable)
-// - commentairesCount : le nombre de commentaires associés au ticket
-// - commentaires : la liste des commentaires associés au ticket (si applicable)  
 
 class TicketComment {
   final int id;
@@ -38,14 +23,24 @@ class TicketComment {
 
   factory TicketComment.fromJson(Map<String, dynamic> json) {
     final author = json['auteur'] as Map<String, dynamic>? ?? const {};
+    
+    // Récupération sécurisée des IDs
+    final rawId = json['id'];
+    final parsedId = rawId is int ? rawId : int.tryParse('$rawId') ?? 0;
+    
+    final rawAuthId = author['id'];
+    final parsedAuthId = rawAuthId is int ? rawAuthId : int.tryParse('$rawAuthId') ?? 0;
+
+    // Gestion du nom complet (priorité au full_name du backend)
     final fullName = (author['full_name'] ?? '').toString().trim();
     final firstName = (author['first_name'] ?? '').toString();
     final lastName = (author['last_name'] ?? '').toString();
+    final finalName = fullName.isNotEmpty ? fullName : '$firstName $lastName'.trim();
 
     return TicketComment(
-      id: json['id'] is int ? json['id'] as int : int.tryParse('${json['id']}') ?? 0,
-      authorId: author['id'] is int ? author['id'] as int : int.tryParse('${author['id']}') ?? 0,
-      authorName: fullName.isNotEmpty ? fullName : '$firstName $lastName'.trim(),
+      id: parsedId,
+      authorId: parsedAuthId,
+      authorName: finalName.isEmpty ? 'Utilisateur' : finalName,
       authorEmail: (author['email'] ?? '').toString(),
       authorRole: (author['role'] ?? '').toString(),
       content: (json['contenu'] ?? '').toString(),
@@ -90,22 +85,40 @@ class Ticket {
     final assigne = json['assigne_a'] as Map<String, dynamic>?;
     final commentairesRaw = json['commentaires'] as List<dynamic>?;
 
+    // Sécurisation de l'ID du ticket
+    final rawId = json['id'];
+    final parsedId = rawId is int ? rawId : int.tryParse('$rawId') ?? 0;
+
+    // Extraction du nom de l'auteur
+    String authorFinalName = 'Inconnu';
+    if (auteur != null) {
+      final fn = (auteur['full_name'] ?? '').toString().trim();
+      authorFinalName = fn.isNotEmpty 
+          ? fn 
+          : '${auteur['first_name'] ?? ''} ${auteur['last_name'] ?? ''}'.trim();
+    }
+
+    // Extraction du nom de l'assigné
+    String? assignedFinalName;
+    if (assigne != null) {
+      final afn = (assigne['full_name'] ?? '').toString().trim();
+      assignedFinalName = afn.isNotEmpty 
+          ? afn 
+          : '${assigne['first_name'] ?? ''} ${assigne['last_name'] ?? ''}'.trim();
+    }
+
     return Ticket(
-      id: json['id'] ?? 0,
-      numeroTicket: (json['numero_ticket'] ?? 'TK-${json['id'] ?? 0}').toString(),
+      id: parsedId,
+      numeroTicket: (json['numero_ticket'] ?? 'TK-$parsedId').toString(),
       titre: (json['titre'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       typeTicket: (json['type_ticket'] ?? '').toString(),
       statut: (json['statut'] ?? '').toString(),
       priorite: (json['priorite'] ?? '').toString(),
-      auteurNom: auteur != null
-          ? '${auteur['first_name'] ?? ''} ${auteur['last_name'] ?? ''}'.trim()
-          : 'Inconnu',
+      auteurNom: authorFinalName.isEmpty ? 'Inconnu' : authorFinalName,
       dateCreation: (json['date_creation'] ?? '').toString(),
       dateResolution: json['date_resolution']?.toString(),
-      assigneA: assigne != null
-          ? '${assigne['first_name'] ?? ''} ${assigne['last_name'] ?? ''}'.trim()
-          : null,
+      assigneA: (assignedFinalName != null && assignedFinalName.isNotEmpty) ? assignedFinalName : null,
       commentairesCount: json['commentaires_count'] is int
           ? json['commentaires_count'] as int
           : int.tryParse('${json['commentaires_count'] ?? 0}') ?? 0,
@@ -113,7 +126,7 @@ class Ticket {
           ? const []
           : commentairesRaw
               .whereType<Map<String, dynamic>>()
-              .map(TicketComment.fromJson)
+              .map((c) => TicketComment.fromJson(c))
               .toList(),
     );
   }

@@ -18,6 +18,7 @@ class ForgotPasswordConfirmScreen extends StatefulWidget {
 class _ForgotPasswordConfirmScreenState extends State<ForgotPasswordConfirmScreen> {
   final _tokenCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  bool _isPasswordVisible = false;
 
   @override
   void dispose() {
@@ -101,12 +102,20 @@ class _ForgotPasswordConfirmScreenState extends State<ForgotPasswordConfirmScree
                   const SizedBox(height: 20),
                   TextField(
                     controller: _passwordCtrl,
-                    obscureText: true,
+                    obscureText: !_isPasswordVisible,
                     decoration: InputDecoration(
                       labelText: 'Nouveau mot de passe',
                       prefixIcon: const Icon(Icons.lock_outline),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                        onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                      ),
                     ),
+                    keyboardType: TextInputType.visiblePassword,
                   ),
                   const SizedBox(height: 32),
                   SizedBox(

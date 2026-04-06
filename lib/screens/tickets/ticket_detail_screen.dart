@@ -13,11 +13,6 @@ import 'widgets/ticket_detail_header.dart';
 import 'widgets/ticket_comment_composer.dart';
 import 'widgets/ticket_conversation_view.dart';
 
-// écran de détail d'un ticket qui affiche les informations complètes du ticket, la conversation entre l'utilisateur et le technicien, 
-//et les actions possibles en fonction du rôle de l'utilisateur et du statut du ticket
-//il structure en plusieurs sections : un header avec le numéro et le titre du ticket, un tracker de progression, une description détaillée, une section de conversation, et une section d'actions pour les techniciens et les administrateurs
-
-//classe charger de gérer l'affichage du détail d'un ticket, y compris la conversation et les actions possibles en fonction du rôle de l'utilisateur et du statut du ticket
 class TicketDetailScreen extends StatefulWidget {
   final int ticketId;
 
@@ -27,7 +22,6 @@ class TicketDetailScreen extends StatefulWidget {
   State<TicketDetailScreen> createState() => _TicketDetailScreenState();
 }
 
-//état du TicketDetailScreen qui gère la logique d'affichage du détail d'un ticket, y compris la conversation et les actions possibles en fonction du rôle de l'utilisateur et du statut du ticket
 class _TicketDetailScreenState extends State<TicketDetailScreen> {
   @override
   void initState() {
@@ -44,6 +38,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
+      // Important pour éviter que le clavier ne pousse les snackbars hors écran
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         bottom: false,
         child: provider.loading
@@ -57,9 +53,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                     ? const Center(child: Text('Ticket introuvable'))
                     : _buildContent(provider, provider.selectedTicket!, authRole),
       ),
-      bottomNavigationBar: (provider.selectedTicket == null || provider.selectedTicket!.statut == 'CLOS')
-          ? null
-          : TicketCommentComposer(ticketId: provider.selectedTicket!.id),
     );
   }
 
@@ -72,37 +65,49 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
     return Column(
       children: [
+        // Header fixe en haut
         TicketDetailHeader(ticket: ticket),
+        
+        // Zone de contenu scrollable
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TicketProgressTracker(status: ticket.statut),
-                    const SizedBox(height: 24),
-                    _buildAssignedTechCard(ticket),
-                    const SizedBox(height: 16),
-                    _buildDescriptionCard(ticket),
-                    const SizedBox(height: 24),
-                    TicketConversationView(
-                      ticket: ticket,
-                      currentUserId: currentUser?.id,
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 760),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TicketProgressTracker(status: ticket.statut),
+                        const SizedBox(height: 24),
+                        _buildAssignedTechCard(ticket),
+                        const SizedBox(height: 16),
+                        _buildDescriptionCard(ticket),
+                        const SizedBox(height: 24),
+                        TicketConversationView(
+                          ticket: ticket,
+                          currentUserId: currentUser?.id,
+                        ),
+                        if (_shouldShowRoleActions(ticket, authRole)) ...[
+                          const SizedBox(height: 24),
+                          _buildRoleActions(provider, ticket, authRole),
+                        ],
+                        const SizedBox(height: 20),
+                      ],
                     ),
-                    if (_shouldShowRoleActions(ticket, authRole)) ...[
-                      const SizedBox(height: 24),
-                      _buildRoleActions(provider, ticket, authRole),
-                    ],
-                    const SizedBox(height: 88),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
+
+        // Zone de saisie fixe en bas (si ticket non clos)
+        if (ticket.statut != 'CLOS')
+          TicketCommentComposer(ticketId: ticket.id),
       ],
     );
   }
@@ -208,9 +213,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
               ),
               onPressed: () async {
                 await provider.updateStatut(ticket.id, 'EN_COURS');
-                if (mounted) {
-                  await provider.fetchTicketDetail(ticket.id);
-                }
+                if (mounted) await provider.fetchTicketDetail(ticket.id);
               },
               child: const Text('Prendre en charge'),
             ),
@@ -232,16 +235,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           if (authRole == 'ADMIN')
             OutlinedButton(
               onPressed: () => _showAssignDialog(context, provider),
-              child: const Text('Assigner a un technicien'),
+              child: const Text('Assigner à un technicien'),
             ),
           if (authRole == 'ADMIN' && (ticket.statut == 'RESOLU' || ticket.statut == 'CLOS'))
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.orange),
               onPressed: () async {
                 await provider.archiveTicket(ticket.id);
-                if (mounted) {
-                  Navigator.pop(context);
-                }
+                if (mounted) Navigator.pop(context);
               },
               child: const Text('Archiver le ticket'),
             ),
@@ -258,48 +259,40 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Assigner un technicien'),
-        content: Autocomplete<Map<String, dynamic>>(
-          displayStringForOption: (option) => '${option['first_name']} ${option['last_name']} (${option['email']})',
-          optionsBuilder: (TextEditingValue textEditingValue) {
-            if (textEditingValue.text == '') {
-              return const Iterable<Map<String, dynamic>>.empty();
-            }
-            return provider.technicians.where((tech) {
-              final fullName = '${tech['first_name']} ${tech['last_name']}'.toLowerCase();
-              return fullName.contains(textEditingValue.text.toLowerCase()) ||
-                  tech['email'].toString().toLowerCase().contains(textEditingValue.text.toLowerCase());
-            });
-          },
-          onSelected: (selection) {
-            selectedTechId = selection['id'];
-          },
-          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-            return TextField(
-              controller: controller,
-              focusNode: focusNode,
-              decoration: const InputDecoration(
-                labelText: 'Rechercher par nom ou email',
-                prefixIcon: Icon(Icons.search),
-              ),
-            );
-          },
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Autocomplete<Map<String, dynamic>>(
+            displayStringForOption: (option) => '${option['first_name']} ${option['last_name']} (${option['email']})',
+            optionsBuilder: (TextEditingValue textEditingValue) {
+              if (textEditingValue.text == '') return const Iterable<Map<String, dynamic>>.empty();
+              return provider.technicians.where((tech) {
+                final fullName = '${tech['first_name']} ${tech['last_name']}'.toLowerCase();
+                return fullName.contains(textEditingValue.text.toLowerCase()) ||
+                    tech['email'].toString().toLowerCase().contains(textEditingValue.text.toLowerCase());
+              });
+            },
+            onSelected: (selection) => selectedTechId = selection['id'],
+            fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+              return TextField(
+                controller: controller,
+                focusNode: focusNode,
+                decoration: const InputDecoration(
+                  labelText: 'Rechercher par nom ou email',
+                  prefixIcon: Icon(Icons.search),
+                ),
+              );
+            },
+          ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () async {
               if (selectedTechId != null) {
                 await provider.assignTicket(widget.ticketId, selectedTechId!);
-                if (context.mounted) {
-                  await provider.fetchTicketDetail(widget.ticketId);
-                }
+                if (mounted) await provider.fetchTicketDetail(widget.ticketId);
               }
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
+              if (mounted) Navigator.pop(context);
             },
             child: const Text('Confirmer'),
           ),
@@ -310,10 +303,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
   String _formatDateTime(String raw) {
     final parsed = DateTime.tryParse(raw)?.toLocal();
-    if (parsed == null) {
-      return raw;
-    }
-
+    if (parsed == null) return raw;
     return '${_twoDigits(parsed.day)}/${_twoDigits(parsed.month)}/${parsed.year} - ${_twoDigits(parsed.hour)}:${_twoDigits(parsed.minute)}';
   }
 

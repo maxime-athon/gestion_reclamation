@@ -19,6 +19,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  bool _isPasswordVisible = false;
+ 
 
   @override
   void dispose() {
@@ -131,11 +133,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordCtrl,
                       hintText: 'Mot de passe',
                       icon: Icons.lock,
-                      obscureText: true,
+                      obscureText: !_isPasswordVisible,
                       keyboardType: TextInputType.visiblePassword,
                       textInputAction: TextInputAction.done,
                       onChanged: (_) => context.read<AuthProvider>().clearError(),
                       onSubmitted: (_) => authProvider.loading ? null : _login(),
+                       suffixIcon: IconButton(
+                        icon: Icon(
+                          _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                        onPressed: (){
+                          setState((){
+                            _isPasswordVisible = !_isPasswordVisible;
+                          });
+                        }
+                        ),
+        
                     ),
                     const SizedBox(height: 14),
                     Align(
@@ -243,6 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
     required String hintText,
     required IconData icon,
     bool obscureText = false,
+    Widget? suffixIcon,
     TextInputType keyboardType = TextInputType.text,
     TextInputAction? textInputAction,
     ValueChanged<String>? onChanged,
@@ -257,6 +272,7 @@ class _LoginScreenState extends State<LoginScreen> {
       onSubmitted: onSubmitted,
       decoration: InputDecoration(
         hintText: hintText,
+        suffixIcon: suffixIcon,
         hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
         prefixIcon: Icon(icon, color: const Color(0xFF9CA3AF)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
