@@ -1,7 +1,7 @@
 ﻿from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-# Un modèle d'utilisateur personnalisé qui hérite de AbstractUser et ajoute des champs supplémentaires pour le rôle, le téléphone, etc., ainsi que des méthodes pour gérer les noms complets et la normalisation des emails lors de la sauvegarde.
+
 class CustomUser(AbstractUser):
     class Role(models.TextChoices):
         CITOYEN = 'CITOYEN', 'Citoyen / Agent'

@@ -105,7 +105,7 @@ class TicketViewSet(viewsets.ModelViewSet):#une vue pour gérer les tickets de r
         serializer.is_valid(raise_exception=True)
         commentaire = serializer.save(ticket=ticket, auteur=request.user)
         return Response(
-            CommentaireSerializer(commentaire, context={'request': request}).data,
+            CommentaireSerializer(commentaire, context={'request': request}).data,#
             status=status.HTTP_201_CREATED,
         )
 
@@ -174,30 +174,25 @@ class TicketViewSet(viewsets.ModelViewSet):#une vue pour gérer les tickets de r
         ticket.est_archive = True
         ticket.save(update_fields=['est_archive', 'date_modification'])
         return Response({'message': 'Ticket archive avec succes.'})
-
-
-class NotificationViewSet(viewsets.ModelViewSet):#une vue pour gérer les notifications des utilisateurs, qui permet aux utilisateurs de voir leurs notifications, de marquer les notifications comme lues ou non lues, et de marquer toutes les notifications comme lues en une seule action.
+    
+    
+class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'patch', 'head', 'options']
+    http_method_names = ['get', 'post', 'patch', 'head', 'options'] 
 
     def get_queryset(self):
-        queryset = Notification.objects.filter(destinataire=self.request.user).select_related('ticket')
-        unread_only = self.request.query_params.get('unread') in {'1', 'true', 'True'}
-        if unread_only:
-            queryset = queryset.filter(est_lue=False)
-        return queryset
+        return Notification.objects.filter(destinataire=self.request.user).select_related('ticket')
 
-    def partial_update(self, request, *args, **kwargs):
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
         notification = self.get_object()
-        serializer = self.get_serializer(notification, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        if 'est_lue' in serializer.validated_data:
-            notification.est_lue = serializer.validated_data['est_lue']
-            notification.save(update_fields=['est_lue'])
-        return Response(self.get_serializer(notification).data)
+        notification.est_lue = True
+        notification.save(update_fields=['est_lue'])
+        return Response({'status': 'lue'})
 
     @action(detail=False, methods=['post'])
     def mark_all_read(self, request):
         updated = self.get_queryset().filter(est_lue=False).update(est_lue=True)
         return Response({'updated': updated})
+

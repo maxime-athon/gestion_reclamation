@@ -85,7 +85,6 @@ class ProfileView(APIView):#une vue pour gérer les opérations de profil de l'u
         serializer.save()
         return Response(serializer.data)
 
-
 class UserViewSet(viewsets.ModelViewSet):#une vue pour gérer les opérations d'administration des utilisateurs, qui permet aux administrateurs de voir, créer, mettre à jour et désactiver les comptes utilisateurs en utilisant le serializer AdminUserSerializer. 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['role', 'is_active']
@@ -99,7 +98,36 @@ class UserViewSet(viewsets.ModelViewSet):#une vue pour gérer les opérations d'
     def get_serializer_class(self):
         return AdminUserSerializer
 
-    @action(detail=True, methods=['patch'], url_path='toggle-active')#pour l'action personnalisée "toggle-active" qui permet aux administrateurs de basculer l'état actif d'un utilisateur (activer ou désactiver un compte) en envoyant une requête PATCH à l'URL correspondante.
+# La méthode perform_create est surchargée pour ajouter une logique personnalisée lors de la création d'un nouvel utilisateur.
+    def perform_create(self, serializer):
+        # 1. Sauvegarde de l'utilisateur
+        user = serializer.save()
+        
+        # 2. Récupération du mot de passe (soit saisi, soit généré)
+        password = serializer.validated_data.get('password')
+        if not password:
+            password = getattr(user, '_generated_password', None)
+
+        # 3. Envoi de l'email de bienvenue pour les techniciens
+        if user.role == CustomUser.Role.TECHNICIEN and password:
+            context = {'user': user, 'password': password}
+            try:
+                html_message = render_to_string('accounts/new_technician_email.html', context)
+                plain_message = strip_tags(html_message)
+                send_mail(
+                    subject='Vos identifiants Technicien - Gestion Réclamations',
+                    message=plain_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    html_message=html_message,
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
+
+
+# L'action personnalisée "toggle-active" permet aux administrateurs de basculer l'état actif d'un utilisateur (activer ou désactiver un compte) en envoyant une requête PATCH à l'URL correspondante.
+    @action(detail=True, methods=['patch'], url_path='toggle-active')
     def toggle_active(self, request, pk=None):
         user = self.get_object()
         is_active = request.data.get('is_active')

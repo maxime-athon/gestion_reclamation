@@ -1,5 +1,7 @@
 ﻿from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django.core.mail import send_mail
+from django.conf import settings
 
 from accounts.models import CustomUser
 from .models import Commentaire, Notification, Ticket
@@ -56,6 +58,16 @@ def notify_ticket_events(sender, instance, created, **kwargs):
             titre='Nouveau ticket assigne',
             message=f'Le ticket #{instance.id} vous a ete attribue.',
         )
+        
+        # Envoi d'un e-mail réel au technicien
+        if instance.assigne_a.email:
+            send_mail(
+                subject=f'Nouveau ticket assigné : #{instance.id}',
+                message=f'Bonjour {instance.assigne_a.first_name},\n\nLe ticket "{instance.titre}" vous a été attribué.\nPriorité : {instance.priorite}',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[instance.assigne_a.email],
+                fail_silently=True,
+            )
 
     if previous_status and previous_status != instance.statut:
         Notification.objects.create(

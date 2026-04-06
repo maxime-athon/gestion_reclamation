@@ -1,6 +1,7 @@
 ﻿#import des utilitaires Django et DRF
 from django.contrib.auth.password_validation import validate_password #pour valider les mots de passe selon les règles définies
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner #pour créer et vérifier des jetons de réinitialisation de mot de passe
+from django.utils.crypto import get_random_string
 from rest_framework import serializers #pour créer des serializers qui convertissent les instances de modèles en formats JSON et vice versa
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer #pour personnaliser le serializer de token JWT
 
@@ -16,7 +17,7 @@ RESET_PASSWORD_SIGNER = TimestampSigner(salt='accounts.reset_password')
 # comme l'inscription, la mise à jour du profil, la demande de réinitialisation de mot de passe, etc. 
 # Ces serializers définissent les champs attendus, 
 # les règles de validation et la logique de création/mise à jour des instances de CustomUser.
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.ModelSerializer):#
     full_name = serializers.CharField(read_only=True)
 
     class Meta:
@@ -37,10 +38,12 @@ class UserSerializer(serializers.ModelSerializer):
 
 # Un serializer similaire à UserSerializer mais avec des champs supplémentaires et des règles de validation différentes,
 # destiné à être utilisé par les administrateurs pour gérer les utilisateurs (création, mise à jour, etc.).
-class AdminUserSerializer(serializers.ModelSerializer):
+class AdminUserSerializer(serializers.ModelSerializer):# ser
     full_name = serializers.CharField(read_only=True)
+    password = serializers.CharField(write_only=True, required=False, validators=[validate_password])
+    email = serializers.EmailField(required=True)
 
-    class Meta:
+    class Meta:#
         model = CustomUser
         fields = [
             'id',
@@ -52,8 +55,22 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'full_name',
             'telephone',
             'is_active',
+            'password',
         ]
-        read_only_fields = ['id', 'email']
+        read_only_fields = ['id']
+
+    def create(self, validated_data):#
+        password = validated_data.pop('password', None)
+        
+        # Si aucun mot de passe n'est fourni, on en génère un aléatoire de 12 caractères
+        if not password:
+            password = get_random_string(length=12)
+            
+        # Utilisation de create_user pour assurer le hachage du mot de passe
+        user = CustomUser.objects.create_user(**validated_data, password=password)
+        # On attache le mot de passe à l'instance pour que la vue puisse y accéder
+        user._generated_password = password
+        return user
 
 
 # Un serializer pour l'inscription des utilisateurs, qui inclut des champs pour le mot de passe, 
