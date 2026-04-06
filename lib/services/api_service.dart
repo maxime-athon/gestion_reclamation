@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/app_error.dart';
 
 class ApiService {
-  static const String baseUrl = "http://127.0.0.1:8000/api";
+  static const String baseUrl = "https://gestion-reclamations-d8cb.up.railway.app/api";
 
   /// Récupère le token JWT stocké localement
   Future<String?> _getToken() async {
