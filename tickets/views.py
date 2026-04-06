@@ -98,7 +98,7 @@ class TicketViewSet(viewsets.ModelViewSet):#une vue pour gérer les tickets de r
         serializer = TicketSerializer(ticket, context={'request': request})
         return Response(serializer.data)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated]) # Plus souple
     def commenter(self, request, pk=None):
         ticket = self.get_object()
         serializer = CommentaireSerializer(data=request.data)
