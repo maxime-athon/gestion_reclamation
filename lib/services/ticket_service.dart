@@ -100,8 +100,8 @@ Future<void> marquerLue(int id) async {
 }
 
 Future<void> marquerToutesLues() async {
-  // Action personnalisée @action(detail=False) -> notifications/mark_all_as_read/
-  await _api.post("notifications/mark_all_as_read/", {});
+  // Action personnalisée @action(detail=False) -> notifications/mark_all_read/
+  await _api.post("notifications/mark_all_read/", {});
 }
 
   Future<Map<String, dynamic>> updateUserStatus(int id, bool isActive) async {

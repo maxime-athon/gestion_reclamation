@@ -36,6 +36,7 @@ class TicketProvider extends ChangeNotifier {
   bool _loading = false;
   bool _notificationsLoading = false;
   String? _error;
+  String? _notificationError;
 
   List<Ticket> get tickets => _tickets;
   List<AppNotification> get notifications => _notifications;
@@ -45,6 +46,7 @@ class TicketProvider extends ChangeNotifier {
   bool get loading => _loading;
   bool get notificationsLoading => _notificationsLoading;
   String? get error => _error;
+  String? get notificationError => _notificationError;
   int get unreadNotificationsCount =>
       _notifications.where((notification) => !notification.isRead).length;
 
@@ -221,7 +223,7 @@ class TicketProvider extends ChangeNotifier {
 
     Future<void> fetchNotifications() async {
     _notificationsLoading = true;
-    _error = null; 
+    _notificationError = null; 
     notifyListeners();
 
     try {
@@ -243,10 +245,10 @@ class TicketProvider extends ChangeNotifier {
       }).toList();
       
     } on AppError catch (e) {
-      _error = e.message;
+      _notificationError = e.message;
     } catch (e) {
       print("DEBUG NOTIF ERROR: $e");
-      _error = 'Impossible de charger les notifications.';
+      _notificationError = 'Impossible de charger les notifications.';
     } finally {
       _notificationsLoading = false;
       notifyListeners();
@@ -278,8 +280,7 @@ class TicketProvider extends ChangeNotifier {
       
       notifyListeners();
     } catch (e) {
-      _error = 'Erreur lors de la lecture';
-      notifyListeners();
+      debugPrint('Non-critical error: Impossible de marquer la notification comme lue ($e)');
     }
   }
 
@@ -302,7 +303,8 @@ class TicketProvider extends ChangeNotifier {
       
       notifyListeners();
     } catch (e) {
-      _error = 'Impossible de tout marquer comme lu';
+      _notificationError = 'Impossible de marquer toutes les notifications comme lues';
+      debugPrint('Notification Error: $e');
       notifyListeners();
     }
   }

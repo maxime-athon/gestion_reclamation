@@ -33,13 +33,17 @@ class ApiService {
     return _handleResponse(response);
   }
 
-  /// Requête POST
-  Future<dynamic> post(String endpoint, Map<String, dynamic> data, {bool useToken = false}) async {
-    final token = useToken ? await _getToken() : null;
-    final response = await http.post(Uri.parse("$baseUrl/$endpoint"),
-        headers: _headers(token), body: jsonEncode(data));
-    return _handleResponse(response);
-  }
+/// Requête POST 
+Future<dynamic> post(String endpoint, Map<String, dynamic> data, {bool useToken = true}) async { // Changé en true
+  final token = useToken ? await _getToken() : null;
+  final response = await http.post(
+    Uri.parse("$baseUrl/$endpoint"),
+    headers: _headers(token), 
+    body: jsonEncode(data)
+  );
+  return _handleResponse(response);
+}
+
 
   /// Requête PUT
   Future<dynamic> put(String endpoint, Map<String, dynamic> data) async {
