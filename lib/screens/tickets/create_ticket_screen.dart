@@ -138,7 +138,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                           const SizedBox(height: 8),
                           _buildTextField(
                             controller: _titleCtrl,
-                            hintText: 'Ex: Panne de climatisation Salle A',
+                            hintText: 'Ex: Reclamation sur le dossier N°12345',
                             onChanged: (_) => context.read<TicketProvider>().clearError(),
                           ),
                           const SizedBox(height: 24),

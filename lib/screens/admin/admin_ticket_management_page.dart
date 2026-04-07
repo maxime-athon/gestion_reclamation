@@ -116,10 +116,17 @@ class AdminTicketManagementPage extends StatelessWidget {
                             ),
                             items: [
                               const DropdownMenuItem<int?>(value: null, child: Text('Non assigne')),
-                              ...technicians.map((tech) => DropdownMenuItem<int?>(value: tech['id'] as int?, child: Text('${tech['first_name']} ${tech['last_name']}', overflow: TextOverflow.ellipsis))),
+                              ...technicians.map((tech) {
+                                final techName = _getTechDisplayName(tech);
+                                return DropdownMenuItem<int?>(
+                                  value: tech['id'] as int?,
+                                  child: Text(techName, overflow: TextOverflow.ellipsis),
+                                );
+                              }),
                             ],
                             onChanged: (value) {
-                              if (value != null) onAssign(ticket, value);
+                              // On permet de repasser à null si besoin, ou on assigne
+                              onAssign(ticket, value ?? 0);
                             },
                           ),
                         )),
@@ -154,12 +161,20 @@ class AdminTicketManagementPage extends StatelessWidget {
     );
   }
 
+  String _getTechDisplayName(Map<String, dynamic> tech) {
+    final fullName = (tech['full_name'] ?? '').toString().trim();
+    if (fullName.isNotEmpty) return fullName;
+    final firstName = (tech['first_name'] ?? '').toString();
+    final lastName = (tech['last_name'] ?? '').toString();
+    return '$firstName $lastName'.trim();
+  }
+
   int? _selectedTechnicianId(Ticket ticket, List<Map<String, dynamic>> technicians) {
     final assignedName = ticket.assigneA?.trim();
     if (assignedName == null || assignedName.isEmpty) return null;
+    
     for (final tech in technicians) {
-      final fullName = '${tech['first_name'] ?? ''} ${tech['last_name'] ?? ''}'.trim();
-      if (fullName == assignedName) return tech['id'] as int?;
+      if (_getTechDisplayName(tech) == assignedName) return tech['id'] as int?;
     }
     return null;
   }

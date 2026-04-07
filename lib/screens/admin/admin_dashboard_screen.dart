@@ -153,32 +153,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       color: AppColors.primary,
       padding: const EdgeInsets.all(24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (isDrawer) const SizedBox(height: 32),
-        Row(children: [
-          const Icon(Icons.admin_panel_settings, color: Colors.white, size: 30),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'ADMIN PANEL',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                fontStyle: FontStyle.italic,
-                letterSpacing: 1.2,
-              ),
+        SizedBox(height: isDrawer ? 32 : 0),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.admin_panel_settings, color: Colors.white, size: 30),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'ADMIN PANEL',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        fontStyle: FontStyle.italic,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 28),
+                _sidebarItem(Icons.dashboard, 'Vue d\'ensemble', _AdminSection.overview),
+                const SizedBox(height: 10),
+                _sidebarItem(Icons.confirmation_number, 'Gestion Tickets', _AdminSection.tickets),
+                const SizedBox(height: 10),
+                _sidebarItem(Icons.group, 'Gestion Techniciens', _AdminSection.technicians),
+                const SizedBox(height: 10),
+                _sidebarItem(Icons.pie_chart, 'Statistiques', _AdminSection.stats),
+                const SizedBox(height: 20),
+              ],
             ),
           ),
-        ]),
-        const SizedBox(height: 28),
-        _sidebarItem(Icons.dashboard, 'Vue d\'ensemble', _AdminSection.overview),
-        const SizedBox(height: 10),
-        _sidebarItem(Icons.confirmation_number, 'Gestion Tickets', _AdminSection.tickets),
-        const SizedBox(height: 10),
-        _sidebarItem(Icons.group, 'Gestion Techniciens', _AdminSection.technicians),
-        const SizedBox(height: 10),
-        _sidebarItem(Icons.pie_chart, 'Statistiques', _AdminSection.stats),
-        if (!isDrawer) const Spacer() else const SizedBox(height: 40),
+        ),
         const Divider(color: Color(0x22FFFFFF), height: 1),
         const SizedBox(height: 18),
         TextButton.icon(
